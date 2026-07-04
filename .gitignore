@@ -1,0 +1,4 @@
+# Local dev helpers — not part of the published app
+.claude/
+# Backups exported from the app
+reef-tracker-backup-*.json

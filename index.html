@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Reef Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230b1220'/%3E%3Cpath d='M50 20c-8 14-22 18-22 34a22 22 0 0 0 44 0c0-16-14-20-22-34z' fill='%2334d399'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131c2e; --panel2:#1b2740; --line:#26324d;
+    --text:#e7edf7; --muted:#93a1bd; --accent:#34d399; --accent2:#38bdf8;
+    --good:#34d399; --watch:#fbbf24; --act:#f87171; --info:#38bdf8;
+    --shadow:0 6px 20px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
+  body{padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  h1,h2,h3{margin:0 0 .4em}
+  h1{font-size:1.3rem} h2{font-size:1.05rem} h3{font-size:.95rem}
+  a{color:var(--accent2)}
+  .app{max-width:640px;margin:0 auto;padding:14px 14px 96px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  header.top .tank{font-size:.8rem;color:var(--muted)}
+  .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:600;
+    background:var(--panel2);color:var(--muted)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .card h2{display:flex;align-items:center;gap:8px}
+  .muted{color:var(--muted)}
+  .small{font-size:.8rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  label{display:block;font-size:.78rem;color:var(--muted);margin:0 0 3px}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:11px 12px;font-size:16px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent2)}
+  .field{margin-bottom:10px}
+  button{font-family:inherit;font-size:15px;font-weight:600;border:none;border-radius:11px;padding:12px 14px;
+    background:var(--accent);color:#062015;cursor:pointer}
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);font-weight:500}
+  button.danger{background:#3a1620;color:#f87171;border:1px solid #5b2230}
+  button:active{transform:translateY(1px)}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .row>*{flex:1}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  .b-good{background:var(--good)} .b-watch{background:var(--watch)} .b-act{background:var(--act)} .b-info{background:var(--info)} .b-none{background:var(--muted)}
+  .t-good{color:var(--good)} .t-watch{color:var(--watch)} .t-act{color:var(--act)} .t-info{color:var(--info)}
+  .status-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .status-row:last-child{border-bottom:none}
+  .status-row .name{flex:1;min-width:0}
+  .status-row .name .p{font-weight:600}
+  .status-row .name .s{font-size:.78rem;color:var(--muted)}
+  .status-row .val{text-align:right;white-space:nowrap}
+  .status-row .val .n{font-weight:700;font-size:1.05rem}
+  .status-row .val .r{font-size:.72rem;color:var(--muted)}
+  nav.bottom{position:fixed;left:0;right:0;bottom:0;background:rgba(11,18,32,.92);
+    backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:20}
+  nav.bottom button{flex:1;background:none;color:var(--muted);border:none;border-radius:10px;
+    font-size:.66rem;font-weight:600;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav.bottom button.active{color:var(--accent)}
+  nav.bottom svg{width:22px;height:22px}
+  .view{display:none} .view.active{display:block}
+  .tiny{font-size:.72rem}
+  .list-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;
+    display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .list-item .meta{font-size:.78rem;color:var(--muted)}
+  .chartwrap{margin-top:6px}
+  .chartwrap svg{width:100%;height:auto;display:block}
+  .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{flex:1;background:none;color:var(--muted);border:none;border-radius:0;padding:9px 4px;font-size:.8rem}
+  .seg button.active{background:var(--accent);color:#062015}
+  .banner{border-radius:12px;padding:11px 13px;font-size:.85rem;margin-bottom:10px;border:1px solid}
+  .banner.act{background:#2a1116;border-color:#5b2230;color:#fecaca}
+  .banner.watch{background:#2a2410;border-color:#5b4d22;color:#fde9b0}
+  .banner.good{background:#0f2a1e;border-color:#22503b;color:#bff3da}
+  .banner.info{background:#0f2333;border-color:#22485b;color:#bfe6f3}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.03em}
+  .verdict{font-weight:600}
+  details{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:8px;background:var(--panel2)}
+  summary{cursor:pointer;font-weight:600;font-size:.9rem}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:.85rem}
+  .kv .k{color:var(--muted)}
+  .hint{font-size:.75rem;color:var(--muted);margin-top:3px}
+  .center{text-align:center}
+  .empty{text-align:center;color:var(--muted);padding:26px 10px}
+  .flash{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:999px;font-size:.85rem;
+    box-shadow:var(--shadow);z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}
+  .flash.show{opacity:1}
+  .divider{height:1px;background:var(--line);margin:12px 0}
+  .badge{font-size:.68rem;padding:2px 7px;border-radius:6px;font-weight:600}
+  .badge.real{background:#2a1116;color:#f87171}
+  .badge.false{background:#0f2a1e;color:#34d399}
+  .badge.noise{background:#1b2740;color:#93a1bd}
+  .badge.watch{background:#2a2410;color:#fbbf24}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <h1 style="margin:0">Reef Tracker</h1>
+      <div class="tank">Tank profile: <span id="tankLabel">Mixed Reef</span></div>
+    </div>
+    <span class="pill" id="lastTested">—</span>
+  </header>
+
+  <!-- DASHBOARD -->
+  <section id="v-dash" class="view active">
+    <div id="dashBanners"></div>
+    <div class="card">
+      <h2>Current status</h2>
+      <div id="statusList"></div>
+      <div class="hint">Ranges reflect best-practice bands for your tank type — the goal is to sit inside the band, not chase a single number.</div>
+    </div>
+    <div class="card">
+      <h2>What to do next</h2>
+      <div id="actionList"></div>
+    </div>
+  </section>
+
+  <!-- LOG WEEKLY -->
+  <section id="v-log" class="view">
+    <div class="card">
+      <h2>Weekly test</h2>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="w_date">
+      </div>
+      <div class="grid">
+        <div class="field"><label>Alkalinity (dKH)</label><input type="number" step="0.1" inputmode="decimal" id="w_alk"></div>
+        <div class="field"><label>Calcium (ppm)</label><input type="number" step="1" inputmode="decimal" id="w_ca"></div>
+        <div class="field"><label>Magnesium (ppm)</label><input type="number" step="1" inputmode="decimal" id="w_mg"></div>
+        <div class="field"><label>Nitrate (ppm)</label><input type="number" step="0.1" inputmode="decimal" id="w_no3"></div>
+        <div class="field"><label>Phosphate (ppm)</label><input type="number" step="0.001" inputmode="decimal" id="w_po4"></div>
+        <div class="field"><label>Salinity (ppt)</label><input type="number" step="0.1" inputmode="decimal" id="w_sal"></div>
+        <div class="field"><label>Temperature (°C)</label><input type="number" step="0.1" inputmode="decimal" id="w_temp"></div>
+        <div class="field"><label id="reefMatLabel">Reef mat advance (mm/day)</label><input type="number" step="0.1" inputmode="decimal" id="w_mat"></div>
+      </div>
+      <div class="field">
+        <label>Phosban reactor flow</label>
+        <select id="w_phosban">
+          <option value="">—</option>
+          <option>Off</option><option>Low</option><option>Medium</option><option>High</option>
+        </select>
+      </div>
+      <div class="divider"></div>
+      <h3>Dosing (up to 4 heads)</h3>
+      <div id="doseInputs"></div>
+      <div class="field"><label>Notes</label><textarea id="w_notes" rows="2" placeholder="Water change, additions, observations…"></textarea></div>
+      <div class="row">
+        <button id="saveWeekly">Save test</button>
+        <button class="secondary" id="clearWeekly">Clear</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Recent tests</h2>
+      <div id="weeklyList"></div>
+    </div>
+  </section>
+
+  <!-- ICP -->
+  <section id="v-icp" class="view">
+    <div class="card">
+      <h2>Triton ICP</h2>
+      <p class="small muted">Paste or import a Triton CSV export. The app re-interprets every element against reef best-practice and ICP reliability — so you don't get false red flags on trace elements Triton would try to sell you dosing for.</p>
+      <div class="field">
+        <label>Test date</label>
+        <input type="date" id="icp_date">
+      </div>
+      <div class="field">
+        <label>Import CSV file</label>
+        <input type="file" id="icp_file" accept=".csv,text/csv">
+      </div>
+      <div class="field">
+        <label>…or paste CSV text</label>
+        <textarea id="icp_paste" rows="4" placeholder="Element,Name,Analysis,Setpoint,Unit,Warning level,Group&#10;Al,Aluminium,8.00,0 - 60,µg/l,,Unwanted heavy metals&#10;…"></textarea>
+      </div>
+      <div class="row">
+        <button id="saveIcp">Save &amp; analyse</button>
+        <button class="secondary" id="loadSampleIcp">Load sample</button>
+      </div>
+    </div>
+    <div id="icpResult"></div>
+    <div class="card">
+      <h2>ICP history</h2>
+      <div id="icpList"></div>
+    </div>
+  </section>
+
+  <!-- CHARTS -->
+  <section id="v-chart" class="view">
+    <div class="card">
+      <h2>Trends</h2>
+      <div class="seg" id="chartSourceSeg">
+        <button data-src="weekly" class="active">Weekly</button>
+        <button data-src="icp">ICP</button>
+      </div>
+      <div class="field" style="margin-top:10px" id="chartParamWrap">
+        <label>Parameter</label>
+        <select id="chartParam"></select>
+      </div>
+    </div>
+    <div class="card" id="chartCard">
+      <div id="chartArea"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="v-set" class="view">
+    <div class="card">
+      <h2>Tank profile</h2>
+      <div class="field">
+        <label>Tank type (sets target ranges)</label>
+        <select id="set_tankType">
+          <option>Softies</option><option>LPS Dominant</option><option>SPS Dominant</option><option selected>Mixed Reef</option>
+        </select>
+      </div>
+      <div class="hint">Changing this loads the best-practice band for that tank type. Your saved test data is never affected.</div>
+    </div>
+
+    <div class="card">
+      <h2>Target ranges</h2>
+      <p class="small muted">These are editable — they're informed opinions, not laws. Tune to your own husbandry. Reset restores the best-practice defaults for the selected tank type.</p>
+      <div id="rangeEditor"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="secondary" id="saveRanges">Save ranges</button>
+        <button class="ghost" id="resetRanges">Reset to defaults</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Doser heads</h2>
+      <p class="small muted">Name the product on each of your 4 dosing heads. These appear in the weekly log.</p>
+      <div id="doserEditor"></div>
+      <button class="secondary" id="saveDosers" style="margin-top:8px">Save heads</button>
+    </div>
+
+    <div class="card">
+      <h2>Reef mat unit</h2>
+      <div class="field"><input type="text" id="set_matUnit" placeholder="mm/day"></div>
+      <button class="secondary" id="saveMatUnit">Save</button>
+    </div>
+
+    <div class="card">
+      <h2>Backup &amp; data</h2>
+      <p class="small muted">Everything lives only on this device. Export a backup file regularly (and before clearing browser data). Import restores it on any device.</p>
+      <div id="storageStatus" class="banner info small" style="display:none"></div>
+      <button class="secondary" id="persistBtn" style="width:100%;margin-bottom:10px;display:none">Make storage permanent</button>
+      <div class="row">
+        <button class="secondary" id="exportData">Export backup</button>
+        <button class="secondary" id="importBtn">Import backup</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <div class="divider"></div>
+      <button class="danger" id="wipeData" style="width:100%">Erase all data</button>
+    </div>
+
+    <div class="card">
+      <h2>Install on your phone</h2>
+      <p class="small muted">In Chrome on your S25+: open this page, tap the ⋮ menu → <b>Add to Home screen</b> / <b>Install app</b>. It then runs full-screen and offline, like a normal app. No Play Store needed.</p>
+    </div>
+  </section>
+</div>
+
+<nav class="bottom" id="nav">
+  <button data-view="dash" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Dash</button>
+  <button data-view="log">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Log</button>
+  <button data-view="icp">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg>ICP</button>
+  <button data-view="chart">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15l3-4 3 3 4-6"/></svg>Charts</button>
+  <button data-view="set">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1a7 7 0 0 0-1.7-1L14.5 2h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg>Settings</button>
+</nav>
+
+<div class="flash" id="flash"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Reef Tracker — single-file offline app
+   Data model in localStorage. No network calls.
+   ============================================================ */
+
+// ---------- Best-practice target ranges by tank type ----------
+// Metric units. Salinity in ppt (PSU), temp in °C.
+// Sources: general reef-keeping consensus (Randy Holmes-Farley chemistry,
+// common SPS/LPS/mixed husbandry). Bands, not points.
+const DEFAULT_RANGES = {
+  "Softies":      {alk:[7,11],   ca:[380,450], mg:[1250,1400], no3:[5,20], po4:[0.05,0.15], sal:[34,35.5],   temp:[24,27]},
+  "LPS Dominant": {alk:[7,10],   ca:[400,450], mg:[1300,1400], no3:[5,15], po4:[0.04,0.12], sal:[34.5,35.5], temp:[24,27]},
+  "SPS Dominant": {alk:[7.5,9],  ca:[410,450], mg:[1300,1400], no3:[2,8],  po4:[0.02,0.08], sal:[34.5,35.5], temp:[24,26.5]},
+  "Mixed Reef":   {alk:[8,9.5],  ca:[400,450], mg:[1300,1400], no3:[5,12], po4:[0.03,0.10], sal:[34.5,35.5], temp:[24,27]}
+};
+
+const PARAMS = [
+  {key:"alk",  label:"Alkalinity", unit:"dKH", dec:1},
+  {key:"ca",   label:"Calcium",    unit:"ppm", dec:0},
+  {key:"mg",   label:"Magnesium",  unit:"ppm", dec:0},
+  {key:"no3",  label:"Nitrate",    unit:"ppm", dec:1},
+  {key:"po4",  label:"Phosphate",  unit:"ppm", dec:3},
+  {key:"sal",  label:"Salinity",   unit:"ppt", dec:1},
+  {key:"temp", label:"Temperature",unit:"°C",  dec:1}
+];
+
+// Lever guidance — which knob to turn, phrased for this rig (4 doser heads + Phosban reactor)
+const LEVERS = {
+  alk:{
+    low:"Increase your alkalinity doser head (or check whether consumption jumped). Raise gradually — no more than ~0.5 dKH per day.",
+    high:"Ease back the alkalinity dosing rate. Bring it down slowly; swings stress corals more than a slightly-off number."
+  },
+  ca:{
+    low:"Nudge up the calcium doser head. Calcium moves slowly, so adjust in small steps.",
+    high:"Reduce calcium dosing. If well above, a water change is the gentlest fix."
+  },
+  mg:{
+    low:"Dose magnesium up — Mg underpins stable Ca and Alk, so fix this first if all three are low.",
+    high:"High Mg is largely harmless; just ease off any Mg dosing."
+  },
+  no3:{
+    low:"Nitrate too low — feed more, or dial back export (less carbon dosing / lighter skimming). Keep it detectable; zero starves corals and feeds nuisance algae via imbalance.",
+    high:"Nitrate high — raise export: more frequent water changes, carbon dosing, or feed a little less."
+  },
+  po4:{
+    low:"Phosphate too low — turn the Phosban reactor flow down a step (or Off) and/or feed more. Zero PO4 causes tissue loss and stubborn algae.",
+    high:"Phosphate high — step the Phosban reactor flow up (Off→Low→Medium→High) and/or do a water change. Check for overfeeding."
+  },
+  sal:{
+    low:"Salinity low — check the ATO isn't overdosing freshwater; correct via a small higher-salinity water change.",
+    high:"Salinity high — top-off with RODI and check the ATO float/level."
+  },
+  temp:{
+    low:"Temp low — check the heater and controller setpoint.",
+    high:"Temp high — add cooling (fans / chiller) and prioritise stability over the exact figure."
+  }
+};
+
+// ---------- Triton ICP element interpretation knowledge ----------
+// category: macro (ICP reliable, actionable) | nutrient | trace (food-supplied, low is normal)
+//           | unreliable (ICP poor for this element) | contaminant (high is the concern)
+// Overrides Triton's upsell-leaning flags with best-practice reef reasoning.
+const ICP_META = {
+  // Macro-elements — ICP is reliable and worth acting on
+  Cl:{cat:"macro", name:"Chloride"},   Na:{cat:"macro", name:"Sodium"},
+  Ca:{cat:"macro", name:"Calcium"},    Mg:{cat:"macro", name:"Magnesium"},
+  K:{cat:"macro",  name:"Potassium"},  Br:{cat:"macro", name:"Bromide"},
+  B:{cat:"macro",  name:"Boron"},      F:{cat:"macro",  name:"Fluoride"},
+  Sr:{cat:"macro", name:"Strontium"},  S:{cat:"macro",  name:"Sulphur"},
+  Sal:{cat:"macro",name:"Salinity"},
+
+  // Nutrients — reliable
+  P:{cat:"nutrient", name:"Phosphorus"},
+  PO4:{cat:"nutrient", name:"Phosphate"},
+  Si:{cat:"nutrient", name:"Silicon", note:"From RODI/silicate leaching. Only a concern if high and you're fighting diatoms; otherwise ignore."},
+
+  // Trace elements — corals get these from food; a low/zero reading is normal, ICP is noisy here
+  Li:{cat:"trace", name:"Lithium"},
+  Ni:{cat:"trace", name:"Nickel"},
+  Mo:{cat:"trace", name:"Molybdenum"},
+  V:{cat:"trace",  name:"Vanadium", note:"ICP is poor at these levels. A '0' or a yellow flag here is almost always noise, not a deficiency."},
+  Zn:{cat:"trace", name:"Zinc"},
+  Mn:{cat:"trace", name:"Manganese", note:"Consumed quickly and replaced by food/water changes. A low reading rarely needs dosing."},
+  Cr:{cat:"trace", name:"Chromium"},
+  Co:{cat:"trace", name:"Cobalt"},
+  Fe:{cat:"trace", name:"Iron", note:"Reads ~0 in most coral tanks and that's fine — iron is used up fast. Only dose deliberately for a refugium/macroalgae."},
+
+  // Unreliable on ICP
+  I:{cat:"unreliable", name:"Iodine", note:"ICP is unreliable for iodine (volatile, speciation varies). Treat as indicative only — do not chase the number with dosing."},
+
+  // Contaminants — the concern is HIGH, target is ~0. Fix by finding the source, not dosing.
+  Al:{cat:"contaminant", lowConcern:true, name:"Aluminium", note:"Often from aluminium-based GFO or clay additives. Mildly elevated is usually harmless."},
+  Sb:{cat:"contaminant", name:"Antimony"},   As:{cat:"contaminant", name:"Arsenic"},
+  Pb:{cat:"contaminant", name:"Lead"},        Cd:{cat:"contaminant", name:"Cadmium"},
+  Cu:{cat:"contaminant", name:"Copper", note:"Toxic to inverts/corals even at low levels — a real reading is worth acting on (check meds, metals, some foods)."},
+  La:{cat:"contaminant", name:"Lanthanum", note:"Only present if you've dosed lanthanum chloride phosphate remover. Not a nutrient — expect ~0 otherwise."},
+  Hg:{cat:"contaminant", name:"Mercury"},     Sc:{cat:"contaminant", name:"Scandium"},
+  Se:{cat:"contaminant", name:"Selenium"},    Ti:{cat:"contaminant", name:"Titanium"},
+  W:{cat:"contaminant",  name:"Tungsten"},
+  Sn:{cat:"contaminant", name:"Tin", note:"Usually leaches from equipment (heaters, magnets, adhesives, cheap metal). Trace the source, run fresh GAC and do water changes — it is NOT a dosing correction. Retest to confirm before tearing the tank apart."},
+  Ba:{cat:"contaminant", lowConcern:true, name:"Barium", note:"Commonly a touch high from certain salt mixes. Low toxicity concern — a mild elevation is not an emergency."},
+  Be:{cat:"contaminant", name:"Beryllium"}
+};
+
+// ---------- Storage ----------
+const LS_KEY = "reefTracker_v1";
+let DB = load();
+
+function defaultDB(){
+  return {
+    settings:{
+      tankType:"Mixed Reef",
+      ranges:JSON.parse(JSON.stringify(DEFAULT_RANGES["Mixed Reef"])),
+      doserHeads:["Alkalinity (KH+)","Calcium","Magnesium","Trace / other"],
+      matUnit:"mm/day"
+    },
+    weekly:[],
+    icp:[]
+  };
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return defaultDB();
+    const d = JSON.parse(raw);
+    d.settings = Object.assign(defaultDB().settings, d.settings||{});
+    d.weekly = d.weekly||[]; d.icp = d.icp||[];
+    return d;
+  }catch(e){ return defaultDB(); }
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+
+// ---------- Persistent storage hardener ----------
+// Ask the browser to mark this origin's storage as durable so it won't be
+// evicted under storage pressure. Installed PWAs are granted this readily.
+async function ensurePersist(userGesture){
+  const box = $("storageStatus"); const btn = $("persistBtn");
+  if(!navigator.storage || !navigator.storage.persist){
+    if(box){ box.style.display="block"; box.textContent="This browser can't guarantee permanent storage — keep exporting backups."; }
+    return;
+  }
+  try{
+    let persisted = await navigator.storage.persisted();
+    if(!persisted) persisted = await navigator.storage.persist();
+    if(box){
+      box.style.display="block";
+      if(persisted){
+        box.className="banner good small";
+        box.innerHTML="🔒 <b>Storage is permanent.</b> Your data won't be auto-evicted. Back up before switching phones or clearing site data.";
+        if(btn) btn.style.display="none";
+      }else{
+        box.className="banner watch small";
+        box.innerHTML="⚠️ <b>Storage is best-effort.</b> Install the app to your home screen to make it permanent (browsers grant this to installed apps). Back up regularly until then.";
+        if(btn) btn.style.display="block";
+      }
+    }
+    if(userGesture) flash(persisted ? "Storage is permanent ✓" : "Install to home screen to lock it in");
+  }catch(e){
+    if(box){ box.style.display="block"; box.className="banner info small"; box.textContent="Couldn't check storage durability — keep exporting backups as your safety net."; }
+  }
+}
+
+// ---------- Helpers ----------
+const $ = id => document.getElementById(id);
+function fmt(v, dec){ if(v===null||v===undefined||v==="") return "—"; const n=Number(v); return isNaN(n)?"—":n.toFixed(dec); }
+function todayISO(){ const d=new Date(); const off=d.getTimezoneOffset(); const l=new Date(d.getTime()-off*60000); return l.toISOString().slice(0,10); }
+function prettyDate(iso){ if(!iso) return ""; const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}); }
+function flash(msg){ const f=$("flash"); f.textContent=msg; f.classList.add("show"); clearTimeout(f._t); f._t=setTimeout(()=>f.classList.remove("show"),1600); }
+function sortByDate(arr){ return arr.slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0); }
+
+// ---------- Assessment engine ----------
+// Returns {status:'good'|'watch'|'act'|'none', dir:'low'|'high'|null, msg}
+function assess(key){
+  const series = sortByDate(DB.weekly).filter(w=> w[key]!==""&&w[key]!==null&&w[key]!==undefined).map(w=>Number(w[key]));
+  if(!series.length) return {status:"none", dir:null, msg:"No data yet."};
+  const v = series[series.length-1];
+  const range = DB.settings.ranges[key];
+  if(!range) return {status:"none",dir:null,msg:""};
+  const [lo,hi] = range;
+  const span = hi-lo;
+  const prev = series.length>1 ? series[series.length-2] : null;
+  const trend = prev!==null ? v-prev : 0;
+
+  if(v < lo) return {status:"act", dir:"low", msg:LEVERS[key].low};
+  if(v > hi) return {status:"act", dir:"high", msg:LEVERS[key].high};
+
+  // within band — check if hugging an edge and trending further toward it
+  const nearLo = v <= lo + span*0.15;
+  const nearHi = v >= hi - span*0.15;
+  if(nearLo && trend < 0) return {status:"watch", dir:"low", msg:"Sitting at the low edge and still drifting down. "+LEVERS[key].low};
+  if(nearHi && trend > 0) return {status:"watch", dir:"high", msg:"Sitting at the high edge and still drifting up. "+LEVERS[key].high};
+  return {status:"good", dir:null, msg:"In the band."};
+}
+
+// ---------- Render: Dashboard ----------
+function renderDash(){
+  const list = $("statusList");
+  const latest = sortByDate(DB.weekly).slice(-1)[0];
+  $("tankLabel").textContent = DB.settings.tankType;
+  $("lastTested").textContent = latest ? "Last test "+prettyDate(latest.date) : "No tests yet";
+
+  if(!DB.weekly.length){
+    list.innerHTML = '<div class="empty">Log your first weekly test to see status and guidance.</div>';
+    $("actionList").innerHTML=""; $("dashBanners").innerHTML="";
+    return;
+  }
+
+  let html=""; const actions=[]; let worst="good";
+  const rank={good:0,watch:1,act:2,none:-1};
+  PARAMS.forEach(p=>{
+    const a = assess(p.key);
+    const val = latest[p.key];
+    const range = DB.settings.ranges[p.key];
+    const bcls = a.status==="good"?"b-good":a.status==="watch"?"b-watch":a.status==="act"?"b-act":"b-none";
+    html += `<div class="status-row">
+      <span class="dot ${bcls}"></span>
+      <div class="name"><div class="p">${p.label}</div><div class="s">${statusWord(a.status)}</div></div>
+      <div class="val"><div class="n">${fmt(val,p.dec)}<span class="r"> ${p.unit}</span></div>
+      <div class="r">band ${range[0]}–${range[1]}</div></div>
+    </div>`;
+    if(a.status==="act"||a.status==="watch"){ actions.push({p,a}); }
+    if(rank[a.status]>rank[worst]) worst=a.status;
+  });
+  list.innerHTML=html;
+
+  // Banners
+  let banners="";
+  if(worst==="act") banners += `<div class="banner act"><b>Action needed.</b> One or more parameters are outside the band for a ${DB.settings.tankType} tank.</div>`;
+  else if(worst==="watch") banners += `<div class="banner watch"><b>Keep an eye on it.</b> Everything's in-band but something is drifting toward an edge.</div>`;
+  else banners += `<div class="banner good"><b>All in-band.</b> Parameters are sitting comfortably for a ${DB.settings.tankType} tank. Keep doing what you're doing.</div>`;
+  $("dashBanners").innerHTML = banners;
+
+  // Actions
+  if(!actions.length){
+    $("actionList").innerHTML = '<div class="muted small">Nothing to correct right now. Stability is the win — resist the urge to tinker.</div>';
+  }else{
+    actions.sort((x,y)=> (y.a.status==="act")-(x.a.status==="act"));
+    $("actionList").innerHTML = actions.map(({p,a})=>{
+      const cls = a.status==="act"?"t-act":"t-watch";
+      let extra="";
+      if(p.key==="po4" && a.dir==="high"){
+        const ph = latest.phosban;
+        if(ph) extra = ` <span class="muted">(Phosban currently: ${ph})</span>`;
+      }
+      return `<div style="padding:9px 0;border-bottom:1px solid var(--line)">
+        <div style="font-weight:600" class="${cls}">${p.label} — ${a.dir==="low"?"below band":a.dir==="high"?"above band":"watch"}${extra}</div>
+        <div class="small" style="margin-top:3px">${a.msg}</div></div>`;
+    }).join("");
+  }
+}
+function statusWord(s){ return s==="good"?"In band":s==="watch"?"Watch — near edge":s==="act"?"Out of band":"No data"; }
+
+// ---------- Render: Weekly log ----------
+function renderDoseInputs(){
+  const heads = DB.settings.doserHeads;
+  $("doseInputs").innerHTML = heads.map((h,i)=>`
+    <div class="field">
+      <label>${h||("Head "+(i+1))} — rate (ml/day)</label>
+      <input type="number" step="0.1" inputmode="decimal" id="w_dose${i}">
+    </div>`).join("");
+}
+function renderWeeklyList(){
+  const el=$("weeklyList");
+  const arr = sortByDate(DB.weekly).slice(-8).reverse();
+  if(!arr.length){ el.innerHTML='<div class="empty">No tests logged yet.</div>'; return; }
+  el.innerHTML = arr.map(w=>{
+    const id=w.id;
+    const bits=[];
+    PARAMS.forEach(p=>{ if(w[p.key]!==""&&w[p.key]!=null) bits.push(`${p.label.slice(0,4)} ${fmt(w[p.key],p.dec)}`); });
+    return `<div class="list-item">
+      <div><div style="font-weight:600">${prettyDate(w.date)}</div>
+        <div class="meta">${bits.slice(0,4).join(" · ")||"—"}</div></div>
+      <button class="ghost tiny" data-del-weekly="${id}">Delete</button>
+    </div>`;
+  }).join("");
+  el.querySelectorAll("[data-del-weekly]").forEach(b=>b.onclick=()=>{
+    DB.weekly = DB.weekly.filter(w=>w.id!=b.dataset.delWeekly); save(); renderWeeklyList(); renderDash(); renderChart();
+    flash("Test deleted");
+  });
+}
+function saveWeekly(){
+  const rec = {id:genId(), date:$("w_date").value||todayISO()};
+  PARAMS.forEach(p=>{ const v=$("w_"+p.key).value; rec[p.key]= v===""?"":Number(v); });
+  rec.phosban = $("w_phosban").value;
+  rec.notes = $("w_notes").value;
+  rec.dose = DB.settings.doserHeads.map((h,i)=>({product:h, rate: $("w_dose"+i).value===""?"":Number($("w_dose"+i).value)}));
+  DB.weekly.push(rec); save();
+  clearWeekly();
+  renderWeeklyList(); renderDash(); renderChart();
+  flash("Test saved ✓");
+  gotoView("dash");
+}
+function clearWeekly(){
+  $("w_date").value=todayISO();
+  PARAMS.forEach(p=>$("w_"+p.key).value="");
+  $("w_phosban").value=""; $("w_notes").value="";
+  DB.settings.doserHeads.forEach((h,i)=>{ const el=$("w_dose"+i); if(el) el.value=""; });
+}
+let _idc=0;
+function genId(){ _idc++; return String(Date.now())+"_"+_idc; }
+
+// ---------- ICP parsing & interpretation ----------
+function parseCSV(text){
+  const rows=[]; const lines=text.replace(/\r/g,"").split("\n");
+  for(const line of lines){
+    if(line.trim()==="") continue;
+    const cells=[]; let cur=""; let q=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(q){ if(c==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+      else { if(c==='"') q=true; else if(c===',') {cells.push(cur);cur="";} else cur+=c; }
+    }
+    cells.push(cur);
+    rows.push(cells.map(s=>s.trim()));
+  }
+  return rows;
+}
+function num(s){
+  if(s==null) return null;
+  s=String(s).trim();
+  if(s==="") return null;
+  s=s.replace(/,/g,"");            // strip thousands sep if any
+  if(s[0]===".") s="0"+s;          // ".034" -> "0.034"
+  const m=s.match(/-?\d+(\.\d+)?/);
+  return m?Number(m[0]):null;
+}
+function parseSetpoint(s){
+  // "0 - 60" -> {lo:0,hi:60}; "12" -> {lo:12,hi:12,single:true}; "35 PSU" -> {lo:35,hi:35}
+  if(!s) return null;
+  s=String(s);
+  const parts=s.split(/-|–/).map(x=>num(x)).filter(x=>x!==null);
+  if(parts.length>=2) return {lo:parts[0], hi:parts[1]};
+  if(parts.length===1) return {lo:parts[0], hi:parts[0], single:true};
+  return null;
+}
+
+// Interpret one ICP element -> {verdict, tone, badge, text}
+// tone: good | watch | act | info ; badge: real|false|noise|watch
+function interpretElement(sym, analysis, setpoint, warning){
+  const meta = ICP_META[sym] || {cat:"trace", name:sym};
+  const sp = parseSetpoint(setpoint);
+  const w = (warning||"").toLowerCase();
+  const cat = meta.cat;
+  const note = meta.note ? " "+meta.note : "";
+
+  const aboveHi = sp && analysis!=null && (sp.hi>0 ? analysis>sp.hi : analysis>0);
+  const belowLo = sp && analysis!=null && analysis < sp.lo;
+
+  if(cat==="macro"){
+    // Triton often gives a single reference point (e.g. Cl 19500) rather than a range.
+    // A few % off a single point is meaningless — apply tolerance so we don't cry wolf.
+    // Macros come from the salt mix / dosing and are rarely urgent, so a real deviation is "monitor".
+    if(sp){
+      const tol = sp.single ? 0.15 : 0;              // ±15% around a single reference point (ICP noise alone is ~10-20%)
+      const off = analysis > sp.hi*(1+tol) || analysis < sp.lo*(1-tol);
+      if(off){
+        return {tone:"watch", badge:"real", verdict:(analysis>sp.hi?"Above":"Below")+" reference",
+          text:`ICP is reliable for ${meta.name}. It's ${analysis>sp.hi?"above":"below"} the ${sp.single?sp.lo:sp.lo+"–"+sp.hi} reference — adjust gradually via salt mix / water change (or the relevant dosing). Not an emergency; correct on your next water change.`+note};
+      }
+    }
+    return {tone:"good", badge:"real", verdict:"In range", text:`${meta.name} is fine and ICP is reliable here.`+note};
+  }
+  if(cat==="nutrient"){
+    if(sp && analysis>sp.hi) return {tone:"watch",badge:"real",verdict:"High",text:`${meta.name} above target — manage via export (GFO / water change / feeding).`+note};
+    if(sp && analysis<sp.lo) return {tone:"watch",badge:"real",verdict:"Low",text:`${meta.name} below target — don't let it hit zero; feed more or reduce export.`+note};
+    return {tone:"good",badge:"real",verdict:"In range",text:`${meta.name} is on target.`+note};
+  }
+  if(cat==="unreliable"){
+    return {tone:"info",badge:"noise",verdict:"ICP unreliable — don't chase",
+      text:`${meta.name}: treat this figure as indicative only.`+note};
+  }
+  if(cat==="trace"){
+    if(analysis==null || analysis===0 || belowLo){
+      return {tone:"info",badge:"noise",verdict:"Low reading is normal — no dosing",
+        text:`${meta.name} reads low/zero. This is expected: corals get it from food and ICP is noisy at trace levels. A single low value is not a deficiency — Triton may flag it, but don't dose to chase it.`+note};
+    }
+    if(aboveHi){
+      return {tone:"watch",badge:"watch",verdict:"Mildly high — monitor",
+        text:`${meta.name} is a little above the reference. Trace elevations are common and rarely urgent; retest before acting.`+note};
+    }
+    return {tone:"good",badge:"noise",verdict:"Fine",text:`${meta.name} within reference; nothing to do.`+note};
+  }
+  // contaminant — the concern is HIGH; fix by finding the source, never by dosing
+  if(analysis==null || analysis===0){
+    return {tone:"good",badge:"false",verdict:"Clean",text:`${meta.name} at/near zero — good.`+note};
+  }
+  if(aboveHi){
+    // low-concern metals (Ba, Al) only alarm on a large exceedance; a mild bump is just monitor
+    const bigExceed = sp && sp.hi>0 ? analysis > sp.hi*2 : true;
+    if(meta.lowConcern && !bigExceed){
+      return {tone:"watch",badge:"watch",verdict:"Mildly elevated — monitor",
+        text:`${meta.name} is a little above the reference. This one is low-toxicity and a mild elevation is common — watch the trend rather than reacting.`+note};
+    }
+    return {tone:"act",badge:"real",verdict:"Investigate source (real flag)",
+      text:`${meta.name} is genuinely elevated. This is a contamination signal, not a dosing target: trace the source, run fresh activated carbon (GAC) and do water changes. Confirm with a retest before drastic action.`+note};
+  }
+  if(w==="red"||w==="yellow"){
+    return {tone:"watch",badge:"watch",verdict:"Slightly raised — monitor",
+      text:`${meta.name} slightly raised. Worth watching, rarely an emergency.`+note};
+  }
+  return {tone:"good",badge:"false",verdict:"Low — fine",text:`${meta.name} is low; not a concern.`+note};
+}
+
+function buildIcpRecord(text, date){
+  const rows=parseCSV(text);
+  if(!rows.length) return null;
+  // find header
+  let start=0;
+  if(/element/i.test(rows[0][0]||"")) start=1;
+  const values=[];
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];
+    if(!r || !r[0]) continue;
+    const sym=r[0].trim();
+    if(!sym) continue;
+    values.push({
+      sym, name:(r[1]||"").trim(), analysis:num(r[2]),
+      setpoint:(r[3]||"").trim(), unit:(r[4]||"").trim(),
+      warning:(r[5]||"").trim(), group:(r[6]||"").trim()
+    });
+  }
+  if(!values.length) return null;
+  return {id:genId(), date:date||todayISO(), values};
+}
+
+function renderIcpAnalysis(rec){
+  if(!rec){ $("icpResult").innerHTML=""; return; }
+  const interp = rec.values.map(v=>({v, r:interpretElement(v.sym, v.analysis, v.setpoint, v.warning)}));
+  const real = interp.filter(x=>x.r.tone==="act");
+  const watch = interp.filter(x=>x.r.tone==="watch");
+  const falseFlags = interp.filter(x=> (x.r.badge==="noise"||x.r.badge==="false") && (String(x.v.warning).toLowerCase()==="red"||String(x.v.warning).toLowerCase()==="yellow"||x.v.analysis===0));
+
+  let summary="";
+  if(real.length) summary += `<div class="banner act"><b>Real issue${real.length>1?"s":""}:</b> ${real.map(x=>ICP_META[x.v.sym]?.name||x.v.sym).join(", ")}. These are worth acting on (see below).</div>`;
+  if(watch.length) summary += `<div class="banner watch"><b>Monitor:</b> ${watch.map(x=>ICP_META[x.v.sym]?.name||x.v.sym).join(", ")}. Keep an eye on trend, no rush.</div>`;
+  const suppressed = interp.filter(x=> (x.r.badge==="noise") && (String(x.v.warning).toLowerCase()==="yellow"||String(x.v.warning).toLowerCase()==="red"));
+  if(suppressed.length) summary += `<div class="banner good"><b>Likely false flags (ignore):</b> ${suppressed.map(x=>ICP_META[x.v.sym]?.name||x.v.sym).join(", ")}. Triton flags these, but at trace levels ICP is noisy and corals get them from food — no dosing needed.</div>`;
+  if(!real.length && !watch.length) summary += `<div class="banner good"><b>Nothing genuinely off.</b> Macro-elements and nutrients look good; any trace-element flags are within ICP noise.</div>`;
+
+  // group rows
+  const groups={};
+  interp.forEach(x=>{ const g=x.v.group||"Other"; (groups[g]=groups[g]||[]).push(x); });
+  let tables="";
+  Object.keys(groups).forEach(g=>{
+    const rows = groups[g].map(({v,r})=>{
+      const tcls = r.tone==="act"?"t-act":r.tone==="watch"?"t-watch":r.tone==="info"?"t-info":"t-good";
+      const badge = r.tone==="act"?`<span class="badge real">act</span>`
+                 : r.tone==="watch"?`<span class="badge watch">watch</span>`
+                 : r.tone==="info"?`<span class="badge noise">noise</span>`
+                 : `<span class="badge false">ok</span>`;
+      const wflag = v.warning?`<span class="tiny t-${v.warning.toLowerCase()==='red'?'act':'watch'}"> Triton:${v.warning}</span>`:"";
+      return `<tr>
+        <td><b>${ICP_META[v.sym]?.name||v.name||v.sym}</b><div class="tiny muted">${v.sym} · ${fmtIcp(v.analysis)} ${v.unit}${wflag}</div></td>
+        <td><div class="verdict ${tcls}">${r.verdict} ${badge}</div><div class="tiny muted" style="margin-top:2px">${r.text}</div></td>
+      </tr>`;
+    }).join("");
+    tables += `<details ${/heavy metal|nutrient|macro/i.test(g)?"open":""}><summary>${g}</summary>
+      <table><tbody>${rows}</tbody></table></details>`;
+  });
+
+  $("icpResult").innerHTML = `<div class="card">
+    <h2>Analysis — ${prettyDate(rec.date)}</h2>
+    ${summary}
+    <p class="tiny muted">Best-practice re-interpretation. Triton's own warnings are shown small next to each element for comparison. Single ICP readings carry 10–20%+ variance at trace levels — always confirm a real flag with a retest and against how the corals actually look.</p>
+    ${tables}
+  </div>`;
+}
+function fmtIcp(n){ if(n==null) return "—"; return (Math.abs(n)>=1000||Number.isInteger(n))?String(n):n.toFixed(n<1?3:2); }
+
+function renderIcpList(){
+  const el=$("icpList");
+  const arr=sortByDate(DB.icp).reverse();
+  if(!arr.length){ el.innerHTML='<div class="empty">No ICP tests saved.</div>'; return; }
+  el.innerHTML=arr.map(r=>`<div class="list-item">
+    <div><div style="font-weight:600">${prettyDate(r.date)}</div><div class="meta">${r.values.length} elements</div></div>
+    <div class="row" style="flex:0 0 auto;gap:6px">
+      <button class="ghost tiny" data-view-icp="${r.id}">View</button>
+      <button class="ghost tiny" data-del-icp="${r.id}">Delete</button>
+    </div></div>`).join("");
+  el.querySelectorAll("[data-view-icp]").forEach(b=>b.onclick=()=>{
+    const r=DB.icp.find(x=>x.id==b.dataset.viewIcp); renderIcpAnalysis(r); window.scrollTo({top:0,behavior:"smooth"});
+  });
+  el.querySelectorAll("[data-del-icp]").forEach(b=>b.onclick=()=>{
+    DB.icp=DB.icp.filter(x=>x.id!=b.dataset.delIcp); save(); renderIcpList(); renderChart(); flash("ICP deleted");
+  });
+}
+
+// ---------- Charts (inline SVG, offline) ----------
+function lineChart(series, range, unit, dec){
+  // series: [{date, value}]
+  const W=340,H=180, padL=38,padR=12,padT=14,padB=26;
+  if(!series.length) return '<div class="empty">No data for this parameter yet.</div>';
+  const vals=series.map(s=>s.value);
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(range){ lo=Math.min(lo,range[0]); hi=Math.max(hi,range[1]); }
+  if(lo===hi){ lo-=1; hi+=1; }
+  const pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+  const x=i=> padL + (series.length===1? (W-padL-padR)/2 : i*(W-padL-padR)/(series.length-1));
+  const y=v=> padT + (1-(v-lo)/(hi-lo))*(H-padT-padB);
+  let bands="";
+  if(range){
+    const yb=y(range[1]), yt=y(range[0]);
+    bands=`<rect x="${padL}" y="${yb}" width="${W-padL-padR}" height="${Math.max(0,yt-yb)}" fill="#34d39922"/>
+      <line x1="${padL}" y1="${yb}" x2="${W-padR}" y2="${yb}" stroke="#34d39955" stroke-dasharray="3 3"/>
+      <line x1="${padL}" y1="${yt}" x2="${W-padR}" y2="${yt}" stroke="#34d39955" stroke-dasharray="3 3"/>`;
+  }
+  const pts=series.map((s,i)=>`${x(i)},${y(s.value)}`).join(" ");
+  const dots=series.map((s,i)=>{
+    const out = range && (s.value<range[0]||s.value>range[1]);
+    return `<circle cx="${x(i)}" cy="${y(s.value)}" r="3.2" fill="${out?'#f87171':'#38bdf8'}"/>`;
+  }).join("");
+  // y labels
+  const yl=[lo+(hi-lo)*0, lo+(hi-lo)*0.5, hi].map(v=>`<text x="4" y="${y(v)+3}" fill="#93a1bd" font-size="9">${v.toFixed(dec)}</text>`).join("");
+  // x labels (first, mid, last)
+  const idxs = series.length<=1?[0]: series.length<4?[0,series.length-1]:[0,Math.floor(series.length/2),series.length-1];
+  const xl=idxs.map(i=>`<text x="${x(i)}" y="${H-8}" fill="#93a1bd" font-size="9" text-anchor="middle">${shortDate(series[i].date)}</text>`).join("");
+  return `<div class="chartwrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${bands}
+    <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${yl}${xl}
+  </svg></div>`;
+}
+function shortDate(iso){ const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}); }
+
+let chartState={src:"weekly", param:"alk"};
+function populateChartParams(){
+  const sel=$("chartParam");
+  if(chartState.src==="weekly"){
+    sel.innerHTML = PARAMS.map(p=>`<option value="${p.key}">${p.label}</option>`).join("");
+    if(!PARAMS.find(p=>p.key===chartState.param)) chartState.param="alk";
+  }else{
+    // ICP: union of numeric symbols present
+    const syms=new Set();
+    DB.icp.forEach(r=>r.values.forEach(v=>{ if(v.analysis!=null) syms.add(v.sym); }));
+    const order=Object.keys(ICP_META).filter(s=>syms.has(s)).concat([...syms].filter(s=>!ICP_META[s]));
+    sel.innerHTML = order.map(s=>`<option value="${s}">${ICP_META[s]?.name||s} (${s})</option>`).join("");
+    if(!order.includes(chartState.param)) chartState.param = order[0]||"";
+  }
+  sel.value=chartState.param;
+}
+function renderChart(){
+  const area=$("chartArea");
+  if(chartState.src==="weekly"){
+    const p=PARAMS.find(x=>x.key===chartState.param); if(!p){area.innerHTML="";return;}
+    const series=sortByDate(DB.weekly).filter(w=>w[p.key]!==""&&w[p.key]!=null).map(w=>({date:w.date,value:Number(w[p.key])}));
+    const range=DB.settings.ranges[p.key];
+    area.innerHTML = `<h2>${p.label} <span class="muted small">(${p.unit})</span></h2>
+      <div class="small muted">Target band ${range[0]}–${range[1]} ${p.unit} · shaded green</div>
+      ${lineChart(series,range,p.unit,p.dec)}
+      ${series.length?`<div class="small muted center">${series.length} reading${series.length>1?"s":""} · latest ${fmt(series.at(-1).value,p.dec)} ${p.unit}</div>`:""}`;
+  }else{
+    const sym=chartState.param;
+    const series=sortByDate(DB.icp).map(r=>{ const v=r.values.find(x=>x.sym===sym); return v&&v.analysis!=null?{date:r.date,value:v.analysis}:null; }).filter(Boolean);
+    const unit = (()=>{ for(const r of DB.icp){ const v=r.values.find(x=>x.sym===sym); if(v) return v.unit; } return ""; })();
+    area.innerHTML = `<h2>${ICP_META[sym]?.name||sym} <span class="muted small">(${sym})</span></h2>
+      <div class="small muted">${ICP_META[sym]?.note||"ICP trend"}</div>
+      ${lineChart(series,null,unit,unit==="mg/l"||series.some(s=>s.value<10)?2:0)}
+      ${series.length?`<div class="small muted center">${series.length} test${series.length>1?"s":""} · latest ${fmtIcp(series.at(-1).value)} ${unit}</div>`:""}`;
+  }
+}
+
+// ---------- Settings ----------
+function renderRangeEditor(){
+  $("rangeEditor").innerHTML = PARAMS.map(p=>{
+    const r=DB.settings.ranges[p.key];
+    return `<div class="field"><label>${p.label} (${p.unit})</label>
+      <div class="row">
+        <input type="number" step="0.001" inputmode="decimal" id="rng_${p.key}_lo" value="${r[0]}">
+        <input type="number" step="0.001" inputmode="decimal" id="rng_${p.key}_hi" value="${r[1]}">
+      </div></div>`;
+  }).join("");
+}
+function renderDoserEditor(){
+  $("doserEditor").innerHTML = DB.settings.doserHeads.map((h,i)=>`
+    <div class="field"><label>Head ${i+1}</label><input type="text" id="dsr_${i}" value="${escapeAttr(h)}"></div>`).join("");
+}
+function escapeAttr(s){ return String(s||"").replace(/"/g,"&quot;"); }
+
+function renderSettings(){
+  $("set_tankType").value=DB.settings.tankType;
+  $("set_matUnit").value=DB.settings.matUnit;
+  renderRangeEditor(); renderDoserEditor();
+}
+
+// ---------- Navigation ----------
+function gotoView(v){
+  document.querySelectorAll(".view").forEach(s=>s.classList.remove("active"));
+  $("v-"+v).classList.add("active");
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  window.scrollTo(0,0);
+  if(v==="dash") renderDash();
+  if(v==="log"){ renderDoseInputs(); renderWeeklyList(); if(!$("w_date").value) clearWeekly(); }
+  if(v==="icp") renderIcpList();
+  if(v==="chart"){ populateChartParams(); renderChart(); }
+  if(v==="set") renderSettings();
+}
+
+// ---------- Wire up ----------
+function init(){
+  $("reefMatLabel").textContent = `Reef mat advance (${DB.settings.matUnit})`;
+  document.querySelectorAll("#nav button").forEach(b=> b.onclick=()=>gotoView(b.dataset.view));
+
+  $("w_date").value=todayISO();
+  $("icp_date").value=todayISO();
+  renderDoseInputs();
+
+  $("saveWeekly").onclick=saveWeekly;
+  $("clearWeekly").onclick=clearWeekly;
+
+  $("saveIcp").onclick=()=>{
+    const txt=$("icp_paste").value.trim();
+    if(!txt){ flash("Paste or import a CSV first"); return; }
+    const rec=buildIcpRecord(txt,$("icp_date").value);
+    if(!rec){ flash("Couldn't parse that CSV"); return; }
+    DB.icp.push(rec); save();
+    renderIcpAnalysis(rec); renderIcpList();
+    $("icp_paste").value=""; flash("ICP saved & analysed ✓");
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
+  $("icp_file").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ $("icp_paste").value=rd.result; flash("CSV loaded — tap Save & analyse"); };
+    rd.readAsText(f);
+  };
+  $("loadSampleIcp").onclick=()=>{ $("icp_paste").value=SAMPLE_ICP; flash("Sample loaded — tap Save & analyse"); };
+
+  $("chartSourceSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    chartState.src=b.dataset.src;
+    $("chartSourceSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+    populateChartParams(); renderChart();
+  });
+  $("chartParam").onchange=e=>{ chartState.param=e.target.value; renderChart(); };
+
+  $("set_tankType").onchange=e=>{
+    DB.settings.tankType=e.target.value;
+    DB.settings.ranges=JSON.parse(JSON.stringify(DEFAULT_RANGES[e.target.value]));
+    save(); renderRangeEditor(); flash("Loaded "+e.target.value+" ranges");
+  };
+  $("saveRanges").onclick=()=>{
+    PARAMS.forEach(p=>{
+      const lo=Number($("rng_"+p.key+"_lo").value), hi=Number($("rng_"+p.key+"_hi").value);
+      DB.settings.ranges[p.key]=[lo,hi];
+    });
+    save(); flash("Ranges saved ✓");
+  };
+  $("resetRanges").onclick=()=>{
+    DB.settings.ranges=JSON.parse(JSON.stringify(DEFAULT_RANGES[DB.settings.tankType]));
+    save(); renderRangeEditor(); flash("Reset to defaults");
+  };
+  $("saveDosers").onclick=()=>{
+    DB.settings.doserHeads=DB.settings.doserHeads.map((_,i)=>$("dsr_"+i).value||("Head "+(i+1)));
+    save(); renderDoseInputs(); flash("Heads saved ✓");
+  };
+  $("saveMatUnit").onclick=()=>{
+    DB.settings.matUnit=$("set_matUnit").value||"mm/day"; save();
+    $("reefMatLabel").textContent=`Reef mat advance (${DB.settings.matUnit})`; flash("Saved ✓");
+  };
+
+  $("persistBtn").onclick=()=>ensurePersist(true);
+  $("exportData").onclick=()=>{
+    const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download="reef-tracker-backup-"+todayISO()+".json"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000); flash("Backup exported");
+    ensurePersist(false);
+  };
+  $("importBtn").onclick=()=>$("importFile").click();
+  $("importFile").onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{ try{
+      const d=JSON.parse(rd.result);
+      if(!d.settings||!Array.isArray(d.weekly)) throw 0;
+      DB=d; DB.settings=Object.assign(defaultDB().settings,DB.settings);
+      DB.weekly=DB.weekly||[]; DB.icp=DB.icp||[]; save();
+      init2(); flash("Backup imported ✓");
+    }catch(err){ flash("Invalid backup file"); } };
+    rd.readAsText(f);
+  };
+  $("wipeData").onclick=()=>{
+    if(confirm("Erase ALL saved tests, ICP results and settings on this device? This cannot be undone.")){
+      DB=defaultDB(); save(); init2(); flash("All data erased");
+    }
+  };
+
+  gotoView("dash");
+  ensurePersist(false);
+}
+function init2(){ // re-render everything after data swap
+  $("reefMatLabel").textContent=`Reef mat advance (${DB.settings.matUnit})`;
+  renderDoseInputs(); renderSettings(); gotoView("dash");
+}
+
+// Sample = the attached Triton export, for demo/testing
+const SAMPLE_ICP = `Element,Name,Analysis,Setpoint,Unit,Warning level,Group
+Al,Aluminium,8.00,0 - 60,µg/l,,Unwanted heavy metals
+Sb,Antimony,.00,0,µg/l,,Unwanted heavy metals
+As,Arsenic,.00,0,µg/l,,Unwanted heavy metals
+Pb,Lead,.00,0,µg/l,,Unwanted heavy metals
+Cd,Cadmium,.00,0,µg/l,,Unwanted heavy metals
+Cu,Copper,.00,0,µg/l,,Unwanted heavy metals
+La,Lanthanum,.00,0,µg/l,,Unwanted heavy metals
+Hg,Mercury,.00,0,µg/l,,Unwanted heavy metals
+Sc,Scandium,.00,0,µg/l,,Unwanted heavy metals
+Se,Selenium,.00,0,µg/l,,Unwanted heavy metals
+Ti,Titanium,.00,0,µg/l,,Unwanted heavy metals
+W,Tungsten,.00,0,µg/l,,Unwanted heavy metals
+Sn,Tin,233.00,0,µg/l,red,Unwanted heavy metals
+Cl,Chloride,19640.00,19500,mg/l,,Macro-Elements
+Na,Sodium,10883.00,10000 - 11300,mg/l,,Macro-Elements
+Ca,Calcium,424.00,415 - 520,mg/l,,Macro-Elements
+Mg,Magnesium,1338.00,1320 - 1500,mg/l,,Macro-Elements
+K,Potassium,407.00,380 - 480,mg/l,,Macro-Elements
+Br,Bromide,65.00,64,mg/l,,Macro-Elements
+B,Boron,5.00,4.5,mg/l,,Macro-Elements
+F,Fluoride,1.31,1.3,mg/l,,Macro-Elements
+Sr,Strontium,8.00,8 - 12,mg/l,,Macro-Elements
+S,Sulphur,922.00,900,mg/l,,Macro-Elements
+Li,Lithium,194.00,200,µg/l,,Li-Group
+Ni,Nickel,.00,5,µg/l,,Li-Group
+Mo,Molybdenum,10.00,12,µg/l,,Li-Group
+V,Vanadium,.00,0 - 3,µg/l,yellow,I-Group
+Zn,Zinc,.00,0 - 5,µg/l,,I-Group
+Mn,Manganese,.00,0 - 3,µg/l,yellow,I-Group
+I,Iodine,31.00,30 - 90,µg/l,,I-Group
+Cr,Chromium,.00,0-1,µg/l,,Fe-Group
+Co,Cobalt,.00,0-1,µg/l,,Fe-Group
+Fe,Iron,.00,0-1,µg/l,,Fe-Group
+Ba,Barium,17.00,0 - 10,µg/l,,Ba-Group
+Be,Beryllium,.00,0,µg/l,,Ba-Group
+Si,Silicon,155.00,0 - 200,µg/l,,Si-Group
+P,Phosphorus,11.00,6 - 23,µg/l,,Nutrient-Group
+PO4,Phosphate,.034,0.018 - 0.07,mg/l,,Nutrient-Group
+Sal,Salinity,34.878,35 PSU,PSU,,Salinity`;
+
+init();
+</script>
+</body>
+</html>
