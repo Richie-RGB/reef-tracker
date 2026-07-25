@@ -1008,42 +1008,63 @@ function init(){
   $("exportData").onclick=async()=>{
     const stem="reef-tracker-backup-"+todayISO();
     const json=JSON.stringify(DB,null,2);
-    const notes=[];
+    let note="";
 
-    // Try the OS share sheet first. Chromium restricts which file types may be
-    // shared, so .json is tried first and .txt (always permitted) second.
-    // Nothing may await before navigator.share() or the user gesture expires.
-    const attempts=[
-      {name:stem+".json", type:"application/json"},
-      {name:stem+".txt",  type:"text/plain"}
-    ];
-    for(const t of attempts){
-      let file=null;
-      try{ file=new File([json],t.name,{type:t.type}); }
-      catch(e){ notes.push(t.name+": File() threw "+e.name); continue; }
-      if(!(navigator.canShare && navigator.canShare({files:[file]}))){
-        notes.push(t.name+": canShare() said no"); continue;
-      }
-      try{
+    // ONE share attempt, as the very first thing this handler does.
+    //  - A rejected share() still consumes the user gesture, so any second
+    //    attempt dies with "Must be handling a user gesture".
+    //  - .txt is the type Chromium actually permits. A .json file passes
+    //    canShare() but share() refuses it, burning the gesture on the way.
+    // Hence: no loop, no .json, nothing awaited before share().
+    try{
+      const file=new File([json],stem+".txt",{type:"text/plain"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
         await navigator.share({files:[file],title:"Reef Tracker backup"});
         flash("Backup shared \u2713"); shareNote(""); ensurePersist(false); return;
-      }catch(err){
-        const n=(err&&err.name)||"Error";
-        if(n==="AbortError"){ flash("Export cancelled"); return; }
-        notes.push(t.name+": share() threw "+n+" \u2014 "+((err&&err.message)||"no message"));
       }
+      note="canShare() refused a .txt file on this browser.";
+    }catch(err){
+      const n=(err&&err.name)||"Error";
+      if(n==="AbortError"){ flash("Export cancelled"); return; }
+      note="share() threw "+n+" \u2014 "+((err&&err.message)||"no message");
     }
 
-    // Nothing could be shared: download instead, and say why rather than
-    // leaving it looking like the share button simply did nothing.
+    // Couldn't share: download instead, and say why.
     const blob=new Blob([json],{type:"application/json"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download=stem+".json"; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     flash("Downloaded \u2014 see Settings for why");
-    shareNote("Share unavailable, downloaded instead:\n"+notes.join("\n"));
+    shareNote("Share unavailable, downloaded instead:\n"+note);
     ensurePersist(false);
   };
+
+  // Reports what this device will and won't share. Restored after an earlier
+  // edit removed it.
+  $("shareDiag").onclick=()=>{
+    const mk=(n,t)=>{ try{ return new File(["{}"],n,{type:t}); }catch(e){ return null; } };
+    const can=f=>{
+      if(typeof navigator.canShare!=="function") return "n/a";
+      if(!f) return "File() blocked";
+      try{ return navigator.canShare({files:[f]}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
+    };
+    const canText=()=>{
+      if(typeof navigator.canShare!=="function") return "n/a";
+      try{ return navigator.canShare({text:"x"}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
+    };
+    shareNote([
+      "secure context : "+(window.isSecureContext?"yes":"NO"),
+      "share()        : "+(typeof navigator.share==="function"?"yes":"NO"),
+      "canShare()     : "+(typeof navigator.canShare==="function"?"yes":"NO"),
+      "share .json    : "+can(mk("t.json","application/json")),
+      "share .txt     : "+can(mk("t.txt","text/plain")),
+      "share .csv     : "+can(mk("t.csv","text/csv")),
+      "share text     : "+canText(),
+      "standalone     : "+(window.matchMedia("(display-mode: standalone)").matches?"yes":"no"),
+      "UA             : "+navigator.userAgent
+    ].join("\n"));
+  };
+
   $("importBtn").onclick=()=>$("importFile").click();
   $("importFile").onchange=e=>{
     const f=e.target.files[0]; if(!f) return;
