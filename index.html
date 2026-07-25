@@ -253,13 +253,14 @@
     <div class="card">
       <h2>Backup &amp; data</h2>
       <p class="small muted">Everything lives only on this device. Export a backup file regularly (and before clearing browser data). Import restores it on any device.</p>
+      <p class="small muted">On a phone, Export opens the share sheet so you can send the backup straight to Drive. It arrives as a .txt file — phone browsers won't share .json — and imports back in exactly the same.</p>
       <div id="storageStatus" class="banner info small" style="display:none"></div>
       <button class="secondary" id="persistBtn" style="width:100%;margin-bottom:10px;display:none">Make storage permanent</button>
       <div class="row">
         <button class="secondary" id="exportData">Export backup</button>
         <button class="secondary" id="importBtn">Import backup</button>
       </div>
-      <input type="file" id="importFile" accept=".json" style="display:none">
+      <input type="file" id="importFile" accept=".json,.txt,application/json,text/plain" style="display:none">
       <div class="divider"></div>
       <button class="danger" id="wipeData" style="width:100%">Erase all data</button>
     </div>
@@ -995,26 +996,37 @@ function init(){
 
   $("persistBtn").onclick=()=>ensurePersist(true);
   $("exportData").onclick=async()=>{
-    const name="reef-tracker-backup-"+todayISO()+".json";
-    const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+    const stem="reef-tracker-backup-"+todayISO();
+    const json=JSON.stringify(DB,null,2);
 
-    // Phone: hand the file straight to the OS share sheet (Drive, Files, mail...).
-    // Must run before any other await so the user gesture is still live.
-    try{
-      const file=new File([blob],name,{type:"application/json"});
-      if(navigator.canShare && navigator.canShare({files:[file]})){
+    // Chromium only lets a restricted set of file types through the OS share
+    // sheet and .json is not on that list, so canShare() quietly returns false
+    // and you get a download instead. Try .json first in case the browser is
+    // more permissive, then the identical content as .txt, which is allowed.
+    // No await before navigator.share() — the user gesture must still be live.
+    const attempts=[
+      {name:stem+".json", type:"application/json"},
+      {name:stem+".txt",  type:"text/plain"}
+    ];
+    for(const t of attempts){
+      let file;
+      try{ file=new File([json],t.name,{type:t.type}); }catch(e){ break; }
+      if(!(navigator.canShare && navigator.canShare({files:[file]}))) continue;
+      try{
         await navigator.share({files:[file],title:"Reef Tracker backup"});
         flash("Backup shared \u2713"); ensurePersist(false); return;
+      }catch(err){
+        if(err && err.name==="AbortError"){ flash("Export cancelled"); return; }
+        break;   // share failed for some other reason — fall back to download
       }
-    }catch(err){
-      if(err && err.name==="AbortError"){ flash("Export cancelled"); return; }
-      // any other failure: fall through to a normal download
     }
 
-    // Desktop, or no file-share support: plain download.
+    // Desktop, or no shareable file type available: plain download.
+    const blob=new Blob([json],{type:"application/json"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-    a.download=name; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),1000); flash("Backup exported");
+    a.download=stem+".json"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    flash("Backup downloaded");
     ensurePersist(false);
   };
   $("importBtn").onclick=()=>$("importFile").click();
