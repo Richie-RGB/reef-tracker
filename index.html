@@ -459,6 +459,14 @@ function fmt(v, dec){ if(v===null||v===undefined||v==="") return "—"; const n=
 function todayISO(){ const d=new Date(); const off=d.getTimezoneOffset(); const l=new Date(d.getTime()-off*60000); return l.toISOString().slice(0,10); }
 function prettyDate(iso){ if(!iso) return ""; const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}); }
 function flash(msg){ const f=$("flash"); f.textContent=msg; f.classList.add("show"); clearTimeout(f._t); f._t=setTimeout(()=>f.classList.remove("show"),1600); }
+// Writes a sticky message into the Settings diagnostic box. Unlike flash(),
+// this stays on screen — share failures are too easy to miss in 1.6 seconds.
+function shareNote(msg){
+  const out=document.getElementById("shareDiagOut");
+  if(!out) return;
+  if(!msg){ out.style.display="none"; out.textContent=""; return; }
+  out.style.display="block"; out.textContent=msg;
+}
 function sortByDate(arr){ return arr.slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0); }
 
 // ---------- Reading resolution ----------
@@ -1000,63 +1008,41 @@ function init(){
   $("exportData").onclick=async()=>{
     const stem="reef-tracker-backup-"+todayISO();
     const json=JSON.stringify(DB,null,2);
+    const notes=[];
 
-    // Chromium only lets a restricted set of file types through the OS share
-    // sheet and .json is not on that list, so canShare() quietly returns false
-    // and you get a download instead. Try .json first in case the browser is
-    // more permissive, then the identical content as .txt, which is allowed.
-    // No await before navigator.share() — the user gesture must still be live.
+    // Try the OS share sheet first. Chromium restricts which file types may be
+    // shared, so .json is tried first and .txt (always permitted) second.
+    // Nothing may await before navigator.share() or the user gesture expires.
     const attempts=[
       {name:stem+".json", type:"application/json"},
       {name:stem+".txt",  type:"text/plain"}
     ];
     for(const t of attempts){
-      let file;
-      try{ file=new File([json],t.name,{type:t.type}); }catch(e){ break; }
-      if(!(navigator.canShare && navigator.canShare({files:[file]}))) continue;
+      let file=null;
+      try{ file=new File([json],t.name,{type:t.type}); }
+      catch(e){ notes.push(t.name+": File() threw "+e.name); continue; }
+      if(!(navigator.canShare && navigator.canShare({files:[file]}))){
+        notes.push(t.name+": canShare() said no"); continue;
+      }
       try{
         await navigator.share({files:[file],title:"Reef Tracker backup"});
-        flash("Backup shared \u2713"); ensurePersist(false); return;
+        flash("Backup shared \u2713"); shareNote(""); ensurePersist(false); return;
       }catch(err){
-        if(err && err.name==="AbortError"){ flash("Export cancelled"); return; }
-        break;   // share failed for some other reason — fall back to download
+        const n=(err&&err.name)||"Error";
+        if(n==="AbortError"){ flash("Export cancelled"); return; }
+        notes.push(t.name+": share() threw "+n+" \u2014 "+((err&&err.message)||"no message"));
       }
     }
 
-    // Desktop, or no shareable file type available: plain download.
+    // Nothing could be shared: download instead, and say why rather than
+    // leaving it looking like the share button simply did nothing.
     const blob=new Blob([json],{type:"application/json"});
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
     a.download=stem+".json"; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-    flash("Backup downloaded");
+    flash("Downloaded \u2014 see Settings for why");
+    shareNote("Share unavailable, downloaded instead:\n"+notes.join("\n"));
     ensurePersist(false);
-  };
-  // Reports why the share sheet is or isn't available on this device.
-  $("shareDiag").onclick=()=>{
-    const mk=(n,t)=>{ try{ return new File(["{}"],n,{type:t}); }catch(e){ return null; } };
-    const can=f=>{
-      if(typeof navigator.canShare!=="function") return "n/a";
-      if(!f) return "File() blocked";
-      try{ return navigator.canShare({files:[f]}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
-    };
-    const canText=()=>{
-      if(typeof navigator.canShare!=="function") return "n/a";
-      try{ return navigator.canShare({text:"x"}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
-    };
-    const lines=[
-      "secure context : "+(window.isSecureContext?"yes":"NO"),
-      "share()        : "+(typeof navigator.share==="function"?"yes":"NO"),
-      "canShare()     : "+(typeof navigator.canShare==="function"?"yes":"NO"),
-      "share .json    : "+can(mk("t.json","application/json")),
-      "share .txt     : "+can(mk("t.txt","text/plain")),
-      "share .csv     : "+can(mk("t.csv","text/csv")),
-      "share text     : "+canText(),
-      "standalone     : "+(window.matchMedia("(display-mode: standalone)").matches?"yes":"no"),
-      "UA             : "+navigator.userAgent
-    ];
-    const out=$("shareDiagOut");
-    out.style.display="block";
-    out.textContent=lines.join("\n");
   };
   $("importBtn").onclick=()=>$("importFile").click();
   $("importFile").onchange=e=>{
