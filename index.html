@@ -261,6 +261,8 @@
         <button class="secondary" id="importBtn">Import backup</button>
       </div>
       <input type="file" id="importFile" accept=".json,.txt,application/json,text/plain" style="display:none">
+      <button class="secondary" id="shareDiag" style="width:100%;margin-top:10px">Check sharing support</button>
+      <pre id="shareDiagOut" class="small muted" style="display:none;white-space:pre-wrap;word-break:break-word;margin-top:8px"></pre>
       <div class="divider"></div>
       <button class="danger" id="wipeData" style="width:100%">Erase all data</button>
     </div>
@@ -1028,6 +1030,33 @@ function init(){
     setTimeout(()=>URL.revokeObjectURL(a.href),1000);
     flash("Backup downloaded");
     ensurePersist(false);
+  };
+  // Reports why the share sheet is or isn't available on this device.
+  $("shareDiag").onclick=()=>{
+    const mk=(n,t)=>{ try{ return new File(["{}"],n,{type:t}); }catch(e){ return null; } };
+    const can=f=>{
+      if(typeof navigator.canShare!=="function") return "n/a";
+      if(!f) return "File() blocked";
+      try{ return navigator.canShare({files:[f]}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
+    };
+    const canText=()=>{
+      if(typeof navigator.canShare!=="function") return "n/a";
+      try{ return navigator.canShare({text:"x"}) ? "YES" : "no"; }catch(e){ return "error "+e.name; }
+    };
+    const lines=[
+      "secure context : "+(window.isSecureContext?"yes":"NO"),
+      "share()        : "+(typeof navigator.share==="function"?"yes":"NO"),
+      "canShare()     : "+(typeof navigator.canShare==="function"?"yes":"NO"),
+      "share .json    : "+can(mk("t.json","application/json")),
+      "share .txt     : "+can(mk("t.txt","text/plain")),
+      "share .csv     : "+can(mk("t.csv","text/csv")),
+      "share text     : "+canText(),
+      "standalone     : "+(window.matchMedia("(display-mode: standalone)").matches?"yes":"no"),
+      "UA             : "+navigator.userAgent
+    ];
+    const out=$("shareDiagOut");
+    out.style.display="block";
+    out.textContent=lines.join("\n");
   };
   $("importBtn").onclick=()=>$("importFile").click();
   $("importFile").onchange=e=>{
