@@ -458,10 +458,46 @@ function prettyDate(iso){ if(!iso) return ""; const d=new Date(iso+"T00:00:00");
 function flash(msg){ const f=$("flash"); f.textContent=msg; f.classList.add("show"); clearTimeout(f._t); f._t=setTimeout(()=>f.classList.remove("show"),1600); }
 function sortByDate(arr){ return arr.slice().sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0); }
 
+// ---------- Reading resolution ----------
+// A parameter's current value is the most recent NON-BLANK reading for that
+// parameter, not whatever happened to sit in the newest row. Log nitrate only
+// and the other parameters keep showing their last known value.
+// For calcium and magnesium an ICP result counts as a reading too, so a fresh
+// ICP fills those in rather than leaving them blank.
+const ICP_KEYS = {ca:"Ca", mg:"Mg"};
+
+function icpReadings(key){
+  const sym = ICP_KEYS[key]; if(!sym) return [];
+  const out=[];
+  (DB.icp||[]).forEach(rec=>{
+    const hit=(rec.values||[]).find(v=>v.sym===sym);
+    if(!hit || hit.analysis==null) return;
+    const n=Number(hit.analysis);
+    if(!isNaN(n)) out.push({date:rec.date, value:n, source:"icp"});
+  });
+  return out;
+}
+
+// Every known reading for a parameter, oldest first.
+function readings(key){
+  const out=[];
+  (DB.weekly||[]).forEach(w=>{
+    const raw=w[key];
+    if(raw===""||raw==null) return;
+    const n=Number(raw);
+    if(!isNaN(n)) out.push({date:w.date, value:n, source:"weekly"});
+  });
+  icpReadings(key).forEach(r=>out.push(r));
+  // same date: a hand test outranks an ICP import
+  return out.sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : (a.source==="icp")-(b.source==="icp"));
+}
+
+function latestReading(key){ const s=readings(key); return s.length ? s[s.length-1] : null; }
+
 // ---------- Assessment engine ----------
 // Returns {status:'good'|'watch'|'act'|'none', dir:'low'|'high'|null, msg}
 function assess(key){
-  const series = sortByDate(DB.weekly).filter(w=> w[key]!==""&&w[key]!==null&&w[key]!==undefined).map(w=>Number(w[key]));
+  const series = readings(key).map(r=>r.value);
   if(!series.length) return {status:"none", dir:null, msg:"No data yet."};
   const v = series[series.length-1];
   const range = DB.settings.ranges[key];
@@ -486,10 +522,13 @@ function assess(key){
 function renderDash(){
   const list = $("statusList");
   const latest = sortByDate(DB.weekly).slice(-1)[0];
+  const lastIcp = sortByDate(DB.icp||[]).slice(-1)[0];
   $("tankLabel").textContent = DB.settings.tankType;
-  $("lastTested").textContent = latest ? "Last test "+prettyDate(latest.date) : "No tests yet";
+  $("lastTested").textContent = latest ? "Last test "+prettyDate(latest.date)
+                              : lastIcp ? "Last ICP "+prettyDate(lastIcp.date)
+                              : "No tests yet";
 
-  if(!DB.weekly.length){
+  if(!DB.weekly.length && !(DB.icp||[]).length){
     list.innerHTML = '<div class="empty">Log your first weekly test to see status and guidance.</div>';
     $("actionList").innerHTML=""; $("dashBanners").innerHTML="";
     return;
@@ -499,14 +538,21 @@ function renderDash(){
   const rank={good:0,watch:1,act:2,none:-1};
   PARAMS.forEach(p=>{
     const a = assess(p.key);
-    const val = latest[p.key];
+    const rd = latestReading(p.key);
+    const val = rd ? rd.value : null;
     const range = DB.settings.ranges[p.key];
     const bcls = a.status==="good"?"b-good":a.status==="watch"?"b-watch":a.status==="act"?"b-act":"b-none";
+    // Stamp the reading whenever it did not come from the newest weekly test,
+    // so a carried-forward or ICP-sourced number is never mistaken for fresh.
+    let stamp = "";
+    if(rd && (rd.source==="icp" || !latest || rd.date!==latest.date)){
+      stamp = `<div class="r">${rd.source==="icp"?"ICP · ":""}${prettyDate(rd.date)}</div>`;
+    }
     html += `<div class="status-row">
       <span class="dot ${bcls}"></span>
       <div class="name"><div class="p">${p.label}</div><div class="s">${statusWord(a.status)}</div></div>
       <div class="val"><div class="n">${fmt(val,p.dec)}<span class="r"> ${p.unit}</span></div>
-      <div class="r">band ${range[0]}–${range[1]}</div></div>
+      <div class="r">band ${range[0]}–${range[1]}</div>${stamp}</div>
     </div>`;
     if(a.status==="act"||a.status==="watch"){ actions.push({p,a}); }
     if(rank[a.status]>rank[worst]) worst=a.status;
@@ -529,7 +575,7 @@ function renderDash(){
       const cls = a.status==="act"?"t-act":"t-watch";
       let extra="";
       if(p.key==="po4" && a.dir==="high"){
-        const ph = latest.phosban;
+        const ph = latest && latest.phosban;
         if(ph) extra = ` <span class="muted">(Phosban currently: ${ph})</span>`;
       }
       return `<div style="padding:9px 0;border-bottom:1px solid var(--line)">
@@ -771,7 +817,7 @@ function renderIcpList(){
     const r=DB.icp.find(x=>x.id==b.dataset.viewIcp); renderIcpAnalysis(r); window.scrollTo({top:0,behavior:"smooth"});
   });
   el.querySelectorAll("[data-del-icp]").forEach(b=>b.onclick=()=>{
-    DB.icp=DB.icp.filter(x=>x.id!=b.dataset.delIcp); save(); renderIcpList(); renderChart(); flash("ICP deleted");
+    DB.icp=DB.icp.filter(x=>x.id!=b.dataset.delIcp); save(); renderIcpList(); renderChart(); renderDash(); flash("ICP deleted");
   });
 }
 
@@ -903,7 +949,7 @@ function init(){
     const rec=buildIcpRecord(txt,$("icp_date").value);
     if(!rec){ flash("Couldn't parse that CSV"); return; }
     DB.icp.push(rec); save();
-    renderIcpAnalysis(rec); renderIcpList();
+    renderIcpAnalysis(rec); renderIcpList(); renderDash();
     $("icp_paste").value=""; flash("ICP saved & analysed ✓");
     window.scrollTo({top:0,behavior:"smooth"});
   };
@@ -948,10 +994,26 @@ function init(){
   };
 
   $("persistBtn").onclick=()=>ensurePersist(true);
-  $("exportData").onclick=()=>{
+  $("exportData").onclick=async()=>{
+    const name="reef-tracker-backup-"+todayISO()+".json";
     const blob=new Blob([JSON.stringify(DB,null,2)],{type:"application/json"});
+
+    // Phone: hand the file straight to the OS share sheet (Drive, Files, mail...).
+    // Must run before any other await so the user gesture is still live.
+    try{
+      const file=new File([blob],name,{type:"application/json"});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:"Reef Tracker backup"});
+        flash("Backup shared \u2713"); ensurePersist(false); return;
+      }
+    }catch(err){
+      if(err && err.name==="AbortError"){ flash("Export cancelled"); return; }
+      // any other failure: fall through to a normal download
+    }
+
+    // Desktop, or no file-share support: plain download.
     const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-    a.download="reef-tracker-backup-"+todayISO()+".json"; a.click();
+    a.download=name; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),1000); flash("Backup exported");
     ensurePersist(false);
   };
