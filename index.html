@@ -125,6 +125,11 @@
       <h2>What to do next</h2>
       <div id="actionList"></div>
     </div>
+    <div class="card">
+      <h2>Nutrient balance (N:P)</h2>
+      <div id="redfieldCard"></div>
+      <div class="hint">Informational, not a pass/fail band — Redfield (16:1) isn't reachable inside this tank's own PO4/NO3 targets. Watch the trend, not the exact number.</div>
+    </div>
   </section>
 
   <!-- LOG WEEKLY -->
@@ -349,6 +354,57 @@ const LEVERS = {
   }
 };
 
+// ---------- N:P ratio (Redfield) — informational, not a pass/fail band ----------
+// Redfield ratio (16:1 molar N:P) is the phytoplankton-uptake reference, not a
+// hobby target: hitting it here would require PO4 above the Acropora-safe zone
+// or NO3 below the "don't starve the fish/Goniopora" floor — both already ruled
+// out by this tank's own configured bands. So this is trend-watch guidance
+// anchored to multiples of Redfield, not a numeric target to chase.
+// Evidence: Rosset et al. 2017 (Mar Pollut Bull) — sustained high N:P causes
+// phosphate starvation of zooxanthellae, impairing photosynthesis and lowering
+// bleaching thresholds, independent of the absolute nutrient levels.
+const N_FRAC_NO3 = 14/62;   // elemental N fraction of NO3- by mass
+const P_FRAC_PO4 = 31/95;   // elemental P fraction of PO4^3- by mass
+const REDFIELD_MOLAR = 16;  // reference molar N:P
+
+function molarNP(no3ppm, po4ppm){
+  if(no3ppm==null || po4ppm==null || po4ppm<=0) return null;
+  const nMol = (no3ppm*N_FRAC_NO3)/14;
+  const pMol = (po4ppm*P_FRAC_PO4)/31;
+  if(pMol<=0) return null;
+  return nMol/pMol;
+}
+
+function assessRedfield(){
+  const no3r = latestReading("no3");
+  const po4r = latestReading("po4");
+  if(!no3r || !po4r) return {status:"none", msg:"Log both Nitrate and Phosphate to calculate."};
+  const ratio = molarNP(no3r.value, po4r.value);
+  if(ratio==null) return {status:"none", msg:"Need a non-zero Phosphate reading to calculate."};
+  const mult = ratio/REDFIELD_MOLAR;
+  let status,label,msg;
+  if(mult<=2){
+    status="good"; label="Near Redfield";
+    msg="Close to the 16:1 Redfield reference — a balanced ratio for photosynthesis.";
+  }else if(mult<=5){
+    status="watch"; label="Elevated";
+    msg="Running above Redfield — common in fed reef tanks and not alarming on its own. Watch the trend rather than the single number.";
+  }else{
+    status="watch"; label="High";
+    msg="Well above Redfield (>5×). Peer-reviewed work (Rosset et al. 2017) links sustained high N:P to phosphate starvation of zooxanthellae and reduced bleaching tolerance. One reading isn't a verdict — but if this keeps climbing, favour bringing PO4 up or NO3 down over letting either drift further apart.";
+  }
+  return {status,label,msg,ratio,mult,no3r,po4r};
+}
+
+// Same-entry series only (both no3 & po4 logged together) — keeps the trend
+// honest rather than pairing values resolved from different dates.
+function redfieldSeries(){
+  return sortByDate(DB.weekly)
+    .filter(w=>w.no3!==""&&w.no3!=null&&w.po4!==""&&w.po4!=null)
+    .map(w=>({date:w.date, value:molarNP(Number(w.no3),Number(w.po4))}))
+    .filter(r=>r.value!=null);
+}
+
 // ---------- Triton ICP element interpretation knowledge ----------
 // category: macro (ICP reliable, actionable) | nutrient | trace (food-supplied, low is normal)
 //           | unreliable (ICP poor for this element) | contaminant (high is the concern)
@@ -542,6 +598,7 @@ function renderDash(){
   if(!DB.weekly.length && !(DB.icp||[]).length){
     list.innerHTML = '<div class="empty">Log your first weekly test to see status and guidance.</div>';
     $("actionList").innerHTML=""; $("dashBanners").innerHTML="";
+    $("redfieldCard").innerHTML = '<div class="empty">Log a Nitrate and Phosphate reading to calculate.</div>';
     return;
   }
 
@@ -594,8 +651,26 @@ function renderDash(){
         <div class="small" style="margin-top:3px">${a.msg}</div></div>`;
     }).join("");
   }
+  renderRedfieldCard();
 }
 function statusWord(s){ return s==="good"?"In band":s==="watch"?"Watch — near edge":s==="act"?"Out of band":"No data"; }
+
+function renderRedfieldCard(){
+  const el = $("redfieldCard");
+  const r = assessRedfield();
+  if(r.status==="none"){ el.innerHTML = `<div class="empty">${r.msg}</div>`; return; }
+  const bcls = r.status==="good"?"b-good":"b-watch";
+  const datesDiffer = r.no3r.date!==r.po4r.date;
+  const src = d=> d.source==="icp" ? " (ICP)" : "";
+  el.innerHTML = `<div class="status-row">
+    <span class="dot ${bcls}"></span>
+    <div class="name"><div class="p">${r.label}</div><div class="s">${r.mult.toFixed(1)}× Redfield</div></div>
+    <div class="val"><div class="n">${Math.round(r.ratio)}<span class="r"> : 1</span></div>
+    <div class="r">molar N:P</div></div>
+  </div>
+  <div class="small" style="margin-top:8px">${r.msg}</div>
+  <div class="hint" style="margin-top:6px">From NO3 ${fmt(r.no3r.value,1)} ppm (${prettyDate(r.no3r.date)}${src(r.no3r)}) and PO4 ${fmt(r.po4r.value,3)} ppm (${prettyDate(r.po4r.date)}${src(r.po4r)})${datesDiffer?" — different test dates, most recent of each used":""}.</div>`;
+}
 
 // ---------- Render: Weekly log ----------
 function renderDoseInputs(){
@@ -833,8 +908,10 @@ function renderIcpList(){
 }
 
 // ---------- Charts (inline SVG, offline) ----------
-function lineChart(series, range, unit, dec){
-  // series: [{date, value}]
+function lineChart(series, range, unit, dec, opts){
+  // series: [{date, value}]. opts.softZone: draw the shaded band as a
+  // reference only — don't flag dots red for sitting outside it.
+  const softZone = opts && opts.softZone;
   const W=340,H=180, padL=38,padR=12,padT=14,padB=26;
   if(!series.length) return '<div class="empty">No data for this parameter yet.</div>';
   const vals=series.map(s=>s.value);
@@ -853,7 +930,7 @@ function lineChart(series, range, unit, dec){
   }
   const pts=series.map((s,i)=>`${x(i)},${y(s.value)}`).join(" ");
   const dots=series.map((s,i)=>{
-    const out = range && (s.value<range[0]||s.value>range[1]);
+    const out = !softZone && range && (s.value<range[0]||s.value>range[1]);
     return `<circle cx="${x(i)}" cy="${y(s.value)}" r="3.2" fill="${out?'#f87171':'#38bdf8'}"/>`;
   }).join("");
   // y labels
@@ -873,8 +950,9 @@ let chartState={src:"weekly", param:"alk"};
 function populateChartParams(){
   const sel=$("chartParam");
   if(chartState.src==="weekly"){
-    sel.innerHTML = PARAMS.map(p=>`<option value="${p.key}">${p.label}</option>`).join("");
-    if(!PARAMS.find(p=>p.key===chartState.param)) chartState.param="alk";
+    sel.innerHTML = PARAMS.map(p=>`<option value="${p.key}">${p.label}</option>`).join("")
+      + `<option value="np">N:P ratio (Redfield)</option>`;
+    if(!PARAMS.find(p=>p.key===chartState.param) && chartState.param!=="np") chartState.param="alk";
   }else{
     // ICP: union of numeric symbols present
     const syms=new Set();
@@ -887,7 +965,16 @@ function populateChartParams(){
 }
 function renderChart(){
   const area=$("chartArea");
-  if(chartState.src==="weekly"){
+  if(chartState.src==="weekly" && chartState.param==="np"){
+    const series=redfieldSeries();
+    // Shaded zone is a reference (≤2× Redfield), not a pass/fail target —
+    // this ratio is structurally unreachable at true 16:1 within this tank's own bands.
+    const refZone=[0, REDFIELD_MOLAR*2];
+    area.innerHTML = `<h2>N:P ratio <span class="muted small">(molar, Redfield = 16:1)</span></h2>
+      <div class="small muted">Green zone is ≤2× Redfield for reference — not a target band. Only counts test sessions where NO3 and PO4 were logged together.</div>
+      ${lineChart(series,refZone,":1",0,{softZone:true})}
+      ${series.length?`<div class="small muted center">${series.length} reading${series.length>1?"s":""} · latest ${Math.round(series.at(-1).value)}:1</div>`:""}`;
+  }else if(chartState.src==="weekly"){
     const p=PARAMS.find(x=>x.key===chartState.param); if(!p){area.innerHTML="";return;}
     const series=sortByDate(DB.weekly).filter(w=>w[p.key]!==""&&w[p.key]!=null).map(w=>({date:w.date,value:Number(w[p.key])}));
     const range=DB.settings.ranges[p.key];
