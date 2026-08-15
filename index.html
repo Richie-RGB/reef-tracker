@@ -165,6 +165,7 @@
         <button id="saveWeekly">Save test</button>
         <button class="secondary" id="clearWeekly">Clear</button>
       </div>
+      <div class="hint" id="editingHint" style="display:none">Editing an existing test — Save will update it in place, not add a new entry.</div>
     </div>
     <div class="card">
       <h2>Recent tests</h2>
@@ -681,6 +682,7 @@ function renderDoseInputs(){
       <input type="number" step="0.1" inputmode="decimal" id="w_dose${i}">
     </div>`).join("");
 }
+let editingWeeklyId = null;
 function renderWeeklyList(){
   const el=$("weeklyList");
   const arr = sortByDate(DB.weekly).slice(-8).reverse();
@@ -692,27 +694,60 @@ function renderWeeklyList(){
     return `<div class="list-item">
       <div><div style="font-weight:600">${prettyDate(w.date)}</div>
         <div class="meta">${bits.slice(0,4).join(" · ")||"—"}</div></div>
-      <button class="ghost tiny" data-del-weekly="${id}">Delete</button>
+      <div class="row" style="gap:6px">
+        <button class="ghost tiny" data-edit-weekly="${id}">Edit</button>
+        <button class="ghost tiny" data-del-weekly="${id}">Delete</button>
+      </div>
     </div>`;
   }).join("");
   el.querySelectorAll("[data-del-weekly]").forEach(b=>b.onclick=()=>{
-    DB.weekly = DB.weekly.filter(w=>w.id!=b.dataset.delWeekly); save(); renderWeeklyList(); renderDash(); renderChart();
+    DB.weekly = DB.weekly.filter(w=>w.id!=b.dataset.delWeekly);
+    if(editingWeeklyId==b.dataset.delWeekly) clearWeekly();
+    save(); renderWeeklyList(); renderDash(); renderChart();
     flash("Test deleted");
   });
+  el.querySelectorAll("[data-edit-weekly]").forEach(b=>b.onclick=()=>{
+    startEditWeekly(b.dataset.editWeekly);
+  });
+}
+function startEditWeekly(id){
+  const rec = DB.weekly.find(w=>w.id==id);
+  if(!rec) return;
+  // gotoView("log") re-renders the dose inputs and recent-tests list, so switch
+  // views first and populate the form after — otherwise this population gets wiped.
+  gotoView("log");
+  editingWeeklyId = rec.id;
+  $("w_date").value = rec.date || todayISO();
+  PARAMS.forEach(p=>{ $("w_"+p.key).value = (rec[p.key]===""||rec[p.key]==null) ? "" : rec[p.key]; });
+  $("w_phosban").value = rec.phosban || "";
+  $("w_notes").value = rec.notes || "";
+  (rec.dose||[]).forEach((d,i)=>{ const el=$("w_dose"+i); if(el) el.value = (d.rate===""||d.rate==null) ? "" : d.rate; });
+  $("saveWeekly").textContent = "Update test";
+  $("editingHint").style.display = "block";
 }
 function saveWeekly(){
-  const rec = {id:genId(), date:$("w_date").value||todayISO()};
+  const rec = {id: editingWeeklyId || genId(), date:$("w_date").value||todayISO()};
   PARAMS.forEach(p=>{ const v=$("w_"+p.key).value; rec[p.key]= v===""?"":Number(v); });
   rec.phosban = $("w_phosban").value;
   rec.notes = $("w_notes").value;
   rec.dose = DB.settings.doserHeads.map((h,i)=>({product:h, rate: $("w_dose"+i).value===""?"":Number($("w_dose"+i).value)}));
-  DB.weekly.push(rec); save();
+  if(editingWeeklyId){
+    const idx = DB.weekly.findIndex(w=>w.id==editingWeeklyId);
+    if(idx>-1) DB.weekly[idx]=rec; else DB.weekly.push(rec);
+  } else {
+    DB.weekly.push(rec);
+  }
+  save();
+  const wasEditing = !!editingWeeklyId;
   clearWeekly();
   renderWeeklyList(); renderDash(); renderChart();
-  flash("Test saved ✓");
+  flash(wasEditing ? "Test updated ✓" : "Test saved ✓");
   gotoView("dash");
 }
 function clearWeekly(){
+  editingWeeklyId = null;
+  $("saveWeekly").textContent = "Save test";
+  $("editingHint").style.display = "none";
   $("w_date").value=todayISO();
   PARAMS.forEach(p=>$("w_"+p.key).value="");
   $("w_phosban").value=""; $("w_notes").value="";
